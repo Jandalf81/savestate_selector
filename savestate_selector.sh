@@ -179,13 +179,15 @@ function buildMenuItemsForSelector ()
 	
 	# add first menu items
 	menuItemsSelector+=("L")
-	menuItemsSelector+=("Launch ROM without SaveState") # TODO show if SRM exists
+	menuItemsSelector+=("Launch ROM without Savestate") # TODO show if SRM exists
 	menuItemsSelector+=("D")
-	menuItemsSelector+=("Delete SaveStates")
-	menuItemsSelector+=("X")
-	menuItemsSelector+=("Exit to EmulationStation")
+	menuItemsSelector+=("Delete Savestates")
+	#menuItemsSelector+=("X")
+	#menuItemsSelector+=("Exit to EmulationStation")
 	
-	log 3 "MENU ITEMS WITHOUT SAVESTATES: ${#menuItemsSelector[@]}"
+	menuItemsDefault=${#menuItemsSelector[@]}
+	
+	log 3 "MENU ITEMS WITHOUT SAVESTATES: ${menuItemsDefault}"
 	
 	# add menu item for each state in $statePath
 	while read stateFile
@@ -208,6 +210,27 @@ function buildMenuItemsForSelector ()
 		log 3 "ADDED MENU ITEM: \"${slot} ${item}"
 		
 		# TODO generate image per $statefile
+		if [ -f "${stateFile}.png" ]
+		then
+			log 3 "RESIZING ${stateFile}.png..."
+			
+			convert \
+				"${stateFile}.png" \
+				-resize 320x240 \
+				-background Orange label:"Slot ${slot}" +swap \
+				-gravity Center \
+				-append \
+				"/dev/shm/state${slot}.png"
+		else
+			log 3 "CREATING FALLBACK THUMBNAIL..."
+			
+			convert \
+				"/home/pi/no_thumbnail.png" \
+				-background Orange label:"Slot ${slot}" +swap \
+				-gravity Center \
+				-append \
+				"/dev/shm/state${slot}.png"
+		fi
 	done <<< $(find $statePath -type f -iname "${romfilebase}.state*" ! -iname "*.png" ! -iname "*.auto" | sort)
 	
 	log 3 "MENU ITEMS WITH SAVESTATES: ${#menuItemsSelector[@]}"
@@ -218,34 +241,41 @@ function showSavestateSelector ()
 	log 2 "()"
 	
 	local choice
+	local i
 	
 	log 3 "FOUND ${#menuItemsSelector[@]} MENU ITEMS"
 	
 	# only show dialog if items have been added, e. g. savestates have been found
-	if [[ ${#menuItemsSelector[@]} -gt 6 ]]
+	if [[ ${#menuItemsSelector[@]} -gt ${menuItemsDefault} ]]
 	then
-		log 3 "SHOW DIALOG"
+		log 3 "AT LEAST 1 SAVESTATE HAS BEEN FOUND, SHOWING DIALOG"
 		
 		start_joy2key
 		
+		refreshThumbnails
+		
 		choice=$(dialog \
 			--backtitle "${backtitle}" \
-			--title "Start ROM" \
-			--menu "\nPlease select which SAVESTATE to start" 25 75 20 \
+			--title "Starting ${romfilename}..." \
+			--menu "\nPlease select which SAVESTATE to start" 20 75 12 \
 				"${menuItemsSelector[@]}" \
 			2>&1 >/dev/tty)
 		
 		log 2 "SELECTED OPTION \"$choice\""
 		
+		pkill pngview
+		
 		case $choice in
-			L) stop_joy2key; exit 2 ;;
+			L) stop_joy2key; exit ;;
 			D) showSavestateDeleter ;;
-			X) stop_joy2key; /opt/retropie/configs/all/runcommand-onend.sh && exit 1 ;;
+			#X) stop_joy2key; /opt/retropie/configs/all/runcommand-onend.sh && exit 1 ;;
 			[0-999]) stop_joy2key; startSavestate "${choice}" ;;
-			*) stop_joy2key; exit 2 ;;
+			*) stop_joy2key; exit ;;
 		esac
 		
 		# TODO show prepared images for savestates
+	else
+		log 3 "NO SAVESTATE HAS BEEN FOUND, SKIPPING DIALOG"
 	fi
 }
 
@@ -255,16 +285,20 @@ function showSavestateDeleter ()
 	
 	local choice
 	
+	refreshThumbnails
+	
 	# this menu shows items 6 til end, e. g. only the statefiles
 	choice=$(dialog \
 		--backtitle "${backtitle}" \
 		--title "Delete savestates" \
 		--cancel-label "Back" \
 		--menu "\nWhich savestate is to be deleted?" 25 75 20 \
-			"${menuItemsSelector[@]:6}" \
+			"${menuItemsSelector[@]:${menuItemsDefault}}" \
 		2>&1 >/dev/tty)
 			
 	log 2 "SELECTED OPTION \"$choice\""
+	
+	pkill pngview
 	
 	case $choice in
 		[0-999]) deleteSavestate "$choice" ;;
@@ -284,8 +318,8 @@ function deleteSavestate ()
 	do
 		if [ "${menuItemsSelector[i]}" == "${slot}" ]
 		then
-			unset menuItemsSelector[i]
-			unset menuItemsSelector[++i]
+			unset -v menuItemsSelector[i]
+			unset -v menuItemsSelector[++i]
 			break # leave loop
 		fi
 	done
@@ -294,16 +328,19 @@ function deleteSavestate ()
 	
 	# remove Savestate file
 	log 2 "REMOVED STATEFILE \"${statePath}/${romfilebase}.state${slot}\" DISABLED"
-#	rm "${statePath}/${romfilebase}.state${slot}"
-#	rm "${statePath}/${romfilebase}.state${slot}.png"
+	rm "${statePath}/${romfilebase}.state${slot}"
+	if [ -f "${statePath}/${romfilebase}.state${slot}.png" ]; then rm "${statePath}/${romfilebase}.state${slot}.png"; fi
 
-	if [ ${#menuItemsSelector[@]} -gt 6 ]
+	if [ ${#menuItemsSelector[@]} -gt ${menuItemsDefault} ]
 	then
 		# return to showSavestateDeleter
 		showSavestateDeleter
 	else
-		# return to showSaveStateSelector
-		showSavestateSelector
+		# there is no more savestate to delete or chose from
+		stop_joy2key
+		
+		log 3 "NO MORE SAVESTATE TO DELETE OR START, EXITTING NOW"
+		exit
 	fi
 }
 
@@ -326,6 +363,41 @@ function startSavestate ()
 		rm "${statePath}/${romfilebase}.state.auto"
 		log 2 "REMOVED ${statePath}/${romfilebase}.state.auto"
 	) &
+}
+
+function refreshThumbnails ()
+{
+	log 2 "()"
+	
+	# starting position of first thumbnail
+	local posx=200
+	local posy=75
+	
+	debugPrintArray
+	
+	for i in ${!menuItemsSelector[@]}
+	do
+		# skip the default items, skip every odd item
+		if [[ $i -lt ${menuItemsDefault} ]] || [[ $(( i % 2 )) -eq 1 ]]; then continue; fi
+		
+		# skip every other item
+		#if [[ $(( i % 2 )) -eq 1 ]]; then continue; fi
+		
+		log 3 "SHOWING THUMBNAIL FOR SLOT ${menuItemsSelector[i]}"
+		
+		nohup pngview -b 0 -l 10000 /dev/shm/state${menuItemsSelector[i]}.png -x ${posx} -y ${posy} &>/dev/null &
+		
+		# TODO compute better coordinates for thumbnails
+		(( posy=posy + 325 ))
+	done
+}
+
+function debugPrintArray ()
+{
+	for i in ${!menuItemsSelector[@]}
+	do
+		log 3 "INDEX = ${i}, CONTENT = ${menuItemsSelector[i]}"
+	done
 }
 
 log 2 "()"
