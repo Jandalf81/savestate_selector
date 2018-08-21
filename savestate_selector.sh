@@ -52,7 +52,6 @@ function log ()
 	fi
 }
 
-
 # COPIED FROM /opt/retropie/supplementary/runcommand/runcommand.sh
 function start_joy2key()
 {
@@ -85,7 +84,6 @@ function stop_joy2key()
         kill -INT "$JOY2KEY_PID"
     fi
 }
-
 
 function getROMFileName ()
 {
@@ -322,6 +320,12 @@ function startSavestate ()
 	log 2 "COPIED ${statePath}/${romfilebase}.state${slot} TO ${statePath}/${romfilebase}.state.auto"
 	cp -f "${statePath}/${romfilebase}.state${slot}" "${statePath}/${romfilebase}.state.auto"
 	
+	# remove AUTO after 10 seconds in background task (so the ROM is already started)
+	(
+		sleep 10
+		rm "${statePath}/${romfilebase}.state.auto"
+		log 2 "REMOVED ${statePath}/${romfilebase}.state.auto"
+	) &
 }
 
 log 2 "()"
