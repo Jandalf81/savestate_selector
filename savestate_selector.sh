@@ -1,5 +1,20 @@
 #!/bin/bash
 
+# define colors for output
+NORMAL="\Zn"
+BLACK="\Z0"
+RED="\Z1"
+GREEN="\Z2"
+YELLOW="\Z3\Zb"
+BLUE="\Z4"
+MAGENTA="\Z5"
+CYAN="\Z6"
+WHITE="\Z7"
+BOLD="\Zb"
+REVERSE="\Zr"
+UNDERLINE="\Zu"
+
+
 system="$1"
 emulator="$2"
 rom="$3"
@@ -174,15 +189,19 @@ function buildMenuItemsForSelector ()
 	local item
 	local lastModified
 	
-	# TODO add check for SRM save
+	# check for SRM save
+	if [ -f "${savePath}/${romfilebase}.srm" ]
+	then
+		srmStatus="${GREEN}"
+	else
+		srmStatus="${RED}No "
+	fi
 	
 	# add first menu items
 	menuItemsSelector+=("L")
-	menuItemsSelector+=("Launch ROM without Savestate") # TODO show if SRM exists
+	menuItemsSelector+=("Launch ROM without Savestate (${srmStatus}Battery Save found${NORMAL})")
 	menuItemsSelector+=("D")
 	menuItemsSelector+=("Delete Savestates")
-	#menuItemsSelector+=("X")
-	#menuItemsSelector+=("Exit to EmulationStation")
 	
 	menuItemsDefault=${#menuItemsSelector[@]}
 	
@@ -233,6 +252,7 @@ function showSavestateSelector ()
 		refreshThumbnailMontage
 		
 		choice=$(dialog \
+			--colors \
 			--backtitle "${backtitle}" \
 			--title "Starting ${romfilename}..." \
 			--menu "\nPlease select which SAVESTATE to start" 20 75 12 \
@@ -267,10 +287,11 @@ function showSavestateDeleter ()
 	
 	# this menu shows anything but the default items, e. g. only the statefiles
 	choice=$(dialog \
+		--colors \
 		--backtitle "${backtitle}" \
 		--title "Delete savestates" \
 		--cancel-label "Back" \
-		--menu "\nWhich savestate is to be deleted?" 25 75 20 \
+		--menu "\nWhich savestate is to be ${RED}deleted${NORMAL}?" 20 75 12 \
 			"${menuItemsSelector[@]:${menuItemsDefault}}" \
 		2>&1 >/dev/tty)
 			
