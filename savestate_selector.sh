@@ -52,6 +52,41 @@ function log ()
 	fi
 }
 
+
+# COPIED FROM /opt/retropie/supplementary/runcommand/runcommand.sh
+function start_joy2key()
+{
+    log 2 "()"
+	
+	# get the first joystick device (if not already set)
+    if [[ -c "$__joy2key_dev" ]]
+	then
+        JOY2KEY_DEV="$__joy2key_dev"
+    else
+        JOY2KEY_DEV="/dev/input/jsX"
+    fi
+    # if joy2key.py is installed run it with cursor keys for axis, and enter + tab for buttons 0 and 1
+    if [[ -f "/opt/retropie/supplementary/runcommand/joy2key.py" && -n "$JOY2KEY_DEV" ]] && ! pgrep -f joy2key.py >/dev/null
+	then
+
+        # call joy2key.py: arguments are curses capability names or hex values starting with '0x'
+        # see: http://pubs.opengroup.org/onlinepubs/7908799/xcurses/terminfo.html
+        "/opt/retropie/supplementary/runcommand/joy2key.py" "$JOY2KEY_DEV" kcub1 kcuf1 kcuu1 kcud1 0x0a 0x09 &
+        JOY2KEY_PID=$!
+    fi
+}
+
+# COPIED FROM /opt/retropie/supplementary/runcommand/runcommand.sh
+function stop_joy2key() 
+{
+	log 2 "()"
+	
+    if [[ -n "$JOY2KEY_PID" ]]; then
+        kill -INT "$JOY2KEY_PID"
+    fi
+}
+
+
 function getROMFileName ()
 {
 	log 2 "()"
@@ -193,21 +228,23 @@ function showSavestateSelector ()
 	then
 		log 3 "SHOW DIALOG"
 		
+		start_joy2key
+		
 		choice=$(dialog \
-			--stdout \
 			--backtitle "${backtitle}" \
 			--title "Start ROM" \
 			--menu "\nPlease select which SAVESTATE to start" 25 75 20 \
-				"${menuItemsSelector[@]}")
+				"${menuItemsSelector[@]}" \
+			2>&1 >/dev/tty)
 		
 		log 2 "SELECTED OPTION \"$choice\""
 		
 		case $choice in
-			L) exit 2 ;;
+			L) stop_joy2key; exit 2 ;;
 			D) showSavestateDeleter ;;
-			X) /opt/retropie/configs/all/runcommand-onend.sh && exit 1 ;;
-			[0-999]) startSavestate "${choice}" ;;
-			*) exit 2 ;;
+			X) stop_joy2key; /opt/retropie/configs/all/runcommand-onend.sh && exit 1 ;;
+			[0-999]) stop_joy2key; startSavestate "${choice}" ;;
+			*) stop_joy2key; exit 2 ;;
 		esac
 		
 		# TODO show prepared images for savestates
@@ -222,12 +259,12 @@ function showSavestateDeleter ()
 	
 	# this menu shows items 6 til end, e. g. only the statefiles
 	choice=$(dialog \
-		--stdout \
 		--backtitle "${backtitle}" \
 		--title "Delete savestates" \
 		--cancel-label "Back" \
 		--menu "\nWhich savestate is to be deleted?" 25 75 20 \
-			"${menuItemsSelector[@]:6}")
+			"${menuItemsSelector[@]:6}" \
+		2>&1 >/dev/tty)
 			
 	log 2 "SELECTED OPTION \"$choice\""
 	
@@ -294,9 +331,9 @@ log 3 "\$2 EMULATOR:\t${emulator}"
 log 3 "\$3 ROM:\t${rom}"
 log 3 "\$4 COMMAND:\t${command}"
 
-getConfigValueToKey "test"
-
 getROMFileName
 getSaveAndStatePath
 buildMenuItemsForSelector
 showSavestateSelector
+
+log 2 "EXIT"
