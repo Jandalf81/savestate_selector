@@ -17,7 +17,7 @@ declare -a menuItemsSelector
 # 1 ERRORS and WARNING
 # 2 ERRORS, WARNING and INFO
 # 3 ERRORS, WARNING, INFO and DEBUG
-logLevel=3
+logLevel=2
 log=~/logfile.txt
 
 # Prints messages of different severeties to a logfile
@@ -131,7 +131,6 @@ function getConfigValueToKey ()
 	# remove key and " from result
 	value=${value/$key = /}
 	value=${value//\"/}
-#	value=${value/\~/\/home\/pi}
 	eval value="${value}"
 	
 	log 3 "FOUND VALUE \"${value}\" TO KEY \"${key}\" IN ${file}"
@@ -208,30 +207,9 @@ function buildMenuItemsForSelector ()
 		menuItemsSelector+=("${slot}")
 		menuItemsSelector+=("${item}")
 		log 3 "ADDED MENU ITEM: \"${slot} ${item}"
-		
-		# TODO generate image per $statefile
-		if [ -f "${stateFile}.png" ]
-		then
-			log 3 "RESIZING ${stateFile}.png..."
-			
-			convert \
-				"${stateFile}.png" \
-				-resize 320x240 \
-				-background Orange label:"Slot ${slot}" +swap \
-				-gravity Center \
-				-append \
-				"/dev/shm/state${slot}.png"
-		else
-			log 3 "CREATING FALLBACK THUMBNAIL..."
-			
-			convert \
-				"/home/pi/no_thumbnail.png" \
-				-background Orange label:"Slot ${slot}" +swap \
-				-gravity Center \
-				-append \
-				"/dev/shm/state${slot}.png"
-		fi
 	done <<< $(find $statePath -type f -iname "${romfilebase}.state*" ! -iname "*.png" ! -iname "*.auto" | sort)
+	
+	# TODO check if STATEFILES can optionally be sorted by LASTMODIFIED
 	
 	log 3 "MENU ITEMS WITH SAVESTATES: ${#menuItemsSelector[@]}"
 }
@@ -252,7 +230,7 @@ function showSavestateSelector ()
 		
 		start_joy2key
 		
-		refreshThumbnails
+		refreshThumbnailMontage
 		
 		choice=$(dialog \
 			--backtitle "${backtitle}" \
@@ -272,8 +250,6 @@ function showSavestateSelector ()
 			[0-999]) stop_joy2key; startSavestate "${choice}" ;;
 			*) stop_joy2key; exit ;;
 		esac
-		
-		# TODO show prepared images for savestates
 	else
 		log 3 "NO SAVESTATE HAS BEEN FOUND, SKIPPING DIALOG"
 	fi
@@ -285,9 +261,11 @@ function showSavestateDeleter ()
 	
 	local choice
 	
-	refreshThumbnails
+	log 3 "SHOW MENU DIALOG"
 	
-	# this menu shows items 6 til end, e. g. only the statefiles
+	refreshThumbnailMontage
+	
+	# this menu shows anything but the default items, e. g. only the statefiles
 	choice=$(dialog \
 		--backtitle "${backtitle}" \
 		--title "Delete savestates" \
@@ -357,6 +335,8 @@ function startSavestate ()
 	log 2 "COPIED ${statePath}/${romfilebase}.state${slot} TO ${statePath}/${romfilebase}.state.auto"
 	cp -f "${statePath}/${romfilebase}.state${slot}" "${statePath}/${romfilebase}.state.auto"
 	
+	# TODO set parameter "state_slot" in CFG
+	
 	# remove AUTO after 10 seconds in background task (so the ROM is already started)
 	(
 		sleep 10
@@ -365,31 +345,65 @@ function startSavestate ()
 	) &
 }
 
-function refreshThumbnails ()
+function refreshThumbnailMontage ()
 {
 	log 2 "()"
 	
-	# starting position of first thumbnail
-	local posx=200
-	local posy=75
+	declare -a thumbnailFile
 	
-	debugPrintArray
-	
-	for i in ${!menuItemsSelector[@]}
+	# initialize array
+	for i in $(seq 0 9)
 	do
-		# skip the default items, skip every odd item
-		if [[ $i -lt ${menuItemsDefault} ]] || [[ $(( i % 2 )) -eq 1 ]]; then continue; fi
-		
-		# skip every other item
-		#if [[ $(( i % 2 )) -eq 1 ]]; then continue; fi
-		
-		log 3 "SHOWING THUMBNAIL FOR SLOT ${menuItemsSelector[i]}"
-		
-		nohup pngview -b 0 -l 10000 /dev/shm/state${menuItemsSelector[i]}.png -x ${posx} -y ${posy} &>/dev/null &
-		
-		# TODO compute better coordinates for thumbnails
-		(( posy=posy + 325 ))
+		thumbnailFile[i]=null:
 	done
+	
+	local si
+	si=0
+	
+	# fill array with references to thumbnails
+	for mi in ${!menuItemsSelector[@]}
+	do	
+		# skip the default items, skip every odd item
+		if [[ $mi -lt ${menuItemsDefault} ]] || [[ $(( mi % 2 )) -eq 1 ]]; then continue; fi
+		
+		# stop this after 10 thumbnails
+		if [[ $si -ge 10 ]]; then return; fi
+		
+		# get SLOT from menuItem
+		slot=${menuItemsSelector[mi]}
+		log 3 "GOT SLOT ${slot} FROM \$menuItemsSelector"
+		if [[ ${slot} -eq 0 ]]; then slot=""; fi # special case for slot 0
+		
+		log 3 "CHECKING FILE ${statePath}/${romfilebase}.state${slot}.png"
+		
+		# check if there's a thumbnail for the currenct thumbnailFile
+		if [ -f "${statePath}/${romfilebase}.state${slot}.png" ]
+		then
+			log 3 "FOUND THUMBNAIL ${statePath}/${romfilebase}.state${slot}.png"
+			thumbnailFile[si]="${statePath}/${romfilebase}.state${slot}.png"
+			let si++
+		else
+			log 3 "NO THUMBNAIL FOUND, USING FALLBACK"
+			cp "/home/pi/no_thumbnail.png" "/dev/shm/${romfilebase}.state${slot}.png"
+			thumbnailFile[si]="/dev/shm/${romfilebase}.state${slot}.png"
+			let si++
+		fi
+	done
+	
+	printf "\"${thumbnailFile[0]}\"\n\"${thumbnailFile[1]}\"\n\"${thumbnailFile[2]}\"\n\"${thumbnailFile[3]}\"\n\"${thumbnailFile[4]}\"\nnull:\nnull:\n\"${thumbnailFile[5]}\"\n\"${thumbnailFile[6]}\"\n\"${thumbnailFile[7]}\"\n\"${thumbnailFile[8]}\"\n\"${thumbnailFile[9]}\"\n" > /dev/shm/thumbs.txt
+	
+	log 3 "CREATING THUMBNAIL MONTAGE"
+	montage \
+		-label '%[basename]' \
+		@/dev/shm/thumbs.txt \
+		-tile 4x3 \
+		-geometry 320x240+75+40 \
+		-background transparent \
+		-shadow \
+		-frame 5 \
+		"/dev/shm/savestate_selector.png"
+		
+	nohup pngview -b 0 -l 10000 "/dev/shm/savestate_selector.png" -x 0 -y 0 &>/dev/null &
 }
 
 function debugPrintArray ()
