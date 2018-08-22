@@ -38,7 +38,7 @@ declare -a menuItems
 # 1 ERRORS and WARNING
 # 2 ERRORS, WARNING and INFO
 # 3 ERRORS, WARNING, INFO and DEBUG
-logLevel=2
+logLevel=3
 log=~/logfile.txt
 
 # Prints messages of different severeties to a logfile
@@ -290,6 +290,8 @@ function showSavestateSelector ()
 		
 		if [ "${showTumbnails}" == "TRUE" ]; then refreshThumbnailMontage; fi
 		
+		log 3 "WAITING FOR USER INPUT"
+		
 		choice=$(dialog \
 			--colors \
 			--backtitle "${backtitle}" \
@@ -334,6 +336,8 @@ function showSavestateDeleter ()
 	log 3 "SHOW MENU DIALOG"
 	
 	if [ "${showTumbnails}" == "TRUE" ]; then refreshThumbnailMontage; fi
+	
+	log 3 "WAITING FOR USER INPUT"
 	
 	# this menu shows anything but the default items, e. g. only the statefiles
 	choice=$(dialog \
@@ -423,12 +427,12 @@ function refreshThumbnailMontage ()
 {
 	log 2 "()"
 	
-	local i=0
+#	local i=0
 	
 	# only create a new montage if the number of menu items has been changed since the last run
 	if [[ ${oldNumberOfMenuItems} -ne ${#menuItems[@]} ]]
 	then
-		log 3 "CREATING NEW THUMBNAIL MONTAGE"
+		log 2 "PREPARING NEW THUMBNAIL MONTAGE"
 		
 		pkill pngview
 		
@@ -448,8 +452,7 @@ function refreshThumbnailMontage ()
 			thumbnailFile[i]=null:
 		done
 		
-		local si
-		si=0
+		local tnF=0
 		
 		# save current number of menu items for future runs
 		oldNumberOfMenuItems=${#menuItems[@]}
@@ -461,7 +464,7 @@ function refreshThumbnailMontage ()
 			if [[ $mi -lt ${menuItemsDefault} ]] || [[ $(( mi % 2 )) -eq 1 ]]; then continue; fi
 			
 			# stop this after 10 thumbnails
-			if [[ $si -ge 10 ]]; then return; fi
+			if [[ $tnF -ge 10 ]]; then return; fi
 			
 			# get SLOT from menuItem
 			slot=${menuItems[mi]}
@@ -474,31 +477,40 @@ function refreshThumbnailMontage ()
 			if [ -f "${statePath}/${romfilebase}.state${slot}.png" ]
 			then
 				log 3 "FOUND THUMBNAIL ${statePath}/${romfilebase}.state${slot}.png"
-				thumbnailFile[si]="${statePath}/${romfilebase}.state${slot}.png"
-				let si++
+				thumbnailFile[tnF]="${statePath}/${romfilebase}.state${slot}.png"
+				let tnF++
 			else
 				log 3 "NO THUMBNAIL FOUND, USING FALLBACK"
 				cp "/home/pi/no_thumbnail.png" "/dev/shm/${romfilebase}.state${slot}.png"
-				thumbnailFile[si]="/dev/shm/${romfilebase}.state${slot}.png"
-				let si++
+				thumbnailFile[tnF]="/dev/shm/${romfilebase}.state${slot}.png"
+				let tnF++
 			fi
 		done
 		
-		# export file list to txt-file
-		printf "\"${thumbnailFile[0]}\"\n\"${thumbnailFile[1]}\"\n\"${thumbnailFile[2]}\"\n\"${thumbnailFile[3]}\"\n\"${thumbnailFile[4]}\"\nnull:\nnull:\n\"${thumbnailFile[5]}\"\n\"${thumbnailFile[6]}\"\n\"${thumbnailFile[7]}\"\n\"${thumbnailFile[8]}\"\n\"${thumbnailFile[9]}\"\n" > /dev/shm/thumbs.txt
-		
-		# create montage based on file list in txt-file
+		# create montage based on &thumbnailFile
+		log 2 "CREATING NEW THUMBNAIL MONTAGE"
 		montage \
 			-label '%[basename]' \
-			@/dev/shm/thumbs.txt \
+			"${thumbnailFile[0]}" \
+			"${thumbnailFile[1]}" \
+			"${thumbnailFile[2]}" \
+			"${thumbnailFile[3]}" \
+			"${thumbnailFile[4]}" \
+			"null:" \
+			"null:" \
+			"${thumbnailFile[5]}" \
+			"${thumbnailFile[6]}" \
+			"${thumbnailFile[7]}" \
+			"${thumbnailFile[8]}" \
+			"${thumbnailFile[9]}" \
 			-tile 4x3 \
 			-geometry 320x240+75+40 \
 			-background transparent \
 			-shadow \
 			-frame 5 \
-			"/dev/shm/savestate_selector.png"
+			"/dev/shm/savestate_selector.png" >> ${log}
 		
-		log 3 "SHOWING THUMBNAIL MONTAGE"
+		log 2 "SHOWING THUMBNAIL MONTAGE"
 		nohup pngview -b 0 -l 10000 "/dev/shm/savestate_selector.png" -x 0 -y 0 &>/dev/null &
 	fi	
 }
