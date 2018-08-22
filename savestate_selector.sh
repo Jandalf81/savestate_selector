@@ -411,6 +411,9 @@ function startSavestate ()
 	log 2 "COPIED ${statePath}/${romfilebase}.state${slot} TO ${statePath}/${romfilebase}.state.auto"
 	cp -f "${statePath}/${romfilebase}.state${slot}" "${statePath}/${romfilebase}.state.auto"
 	
+	# copy tumbnail to LAUNCHING image
+	#cp -f "${statePath}/${romfilebase}.state${slot}.png" "${rompath}/images/${romfilebase}-launching.png"
+	
 	pkill pngview
 	
 	stop_joy2key
@@ -419,6 +422,7 @@ function startSavestate ()
 	(
 		sleep ${deleteDelay}
 		rm "${statePath}/${romfilebase}.state.auto"
+		#rm "${rompath}/images/${romfilebase}-launching.png"
 		log 2 "REMOVED ${statePath}/${romfilebase}.state.auto"
 	) &
 }
