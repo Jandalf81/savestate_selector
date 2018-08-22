@@ -28,7 +28,7 @@ showTumbnails="TRUE"
 deleteDelay=10
 
 # global variables
-backtitle="Savestate Selector"
+backtitle="Savestate Selector (https://github.com/Jandalf81/savestate_selector)"
 configDir=/opt/retropie/configs
 declare -a menuItems
 
@@ -175,7 +175,8 @@ function setConfigValue ()
 			sed -i "/^${key} = /c\\${key} = \"${value}\"" ${configDir}/all/retroarch.cfg
 		else
 			log 3 "ADDING KEY ${key} TO ${configDir}/${system}/retroarch.cfg"
-			# TODO save new parameter
+			# add new parameter above "#include..."
+			sed -i "/^#include \"\/opt\/retropie\/configs\/all\/retroarch.cfg\"/c\\${key} = /c\\${key} = \"${value}\"\n#include \"\/opt\/retropie\/configs\/all\/retroarch.cfg\"" ${configDir}/${system}/retroarch.cfg
 		fi
 	fi
 	
@@ -254,9 +255,7 @@ function buildMenuItems ()
 		menuItems+=("${slot}")
 		menuItems+=("${item}")
 		log 3 "ADDED MENU ITEM: \"${slot} ${item}"
-	done <<< $(find $statePath -type f -iname "${romfilebase}.state*" ! -iname "*.png" ! -iname "*.auto" | sort)
-	
-	# TODO check if STATEFILES can optionally be sorted by LASTMODIFIED
+	done <<< $(find $statePath -type f -iname "${romfilebase}.state*" ! -iname "*.png" ! -iname "*.auto" | sort) # get all STATE files, exclude *.PNG and *.AUTO
 	
 	log 3 "MENU ITEMS WITH SAVESTATES: ${#menuItems[@]}"
 }
@@ -275,7 +274,7 @@ function showSavestateSelector ()
 	then
 		log 3 "AT LEAST 1 SAVESTATE HAS BEEN FOUND, SHOWING DIALOG"
 		
-		start_joy2key
+		start_joy2key # needed to control the dialog with a gamepad
 		
 		if [ "${showTumbnails}" == "TRUE" ]; then refreshThumbnailMontage; fi
 		
@@ -307,13 +306,12 @@ function startROM ()
 	log 3 "SETTING DEFAULT CONFIG PARAMETERS"
 	setConfigValue "state_slot" "0"
 	setConfigValue "savestate_auto_load" "false"
-	if [ "${showTumbnails}" == "TRUE" ]; then setConfigValue "savestate_thumbnail_enable" "true"; fi # create THUMBNAILS
+	if [ "${showTumbnails}" == "TRUE" ]; then setConfigValue "savestate_thumbnail_enable" "true"; fi # create THUMBNAILS on SAVESTATE creation
 	
 	pkill pngview
 	
 	stop_joy2key
 }
-
 
 function showSavestateDeleter ()
 {
@@ -425,7 +423,7 @@ function refreshThumbnailMontage ()
 			--colors \
 			--backtitle "${backtitle}" \
 			--title "Generating Previews..." \
-			--infobox "\nThis may take some seconds...\n\nThe Previews can be ${YELLOW}disabled${NORMAL} in the configuration" 10 40 \
+			--infobox "\nThis may take some seconds...\n\n(The Previews can be ${YELLOW}disabled${NORMAL} in the configuration)" 10 40 \
 			2>&1 >/dev/tty
 			
 		declare -a thumbnailFile
@@ -472,8 +470,10 @@ function refreshThumbnailMontage ()
 			fi
 		done
 		
+		# export file list to txt-file
 		printf "\"${thumbnailFile[0]}\"\n\"${thumbnailFile[1]}\"\n\"${thumbnailFile[2]}\"\n\"${thumbnailFile[3]}\"\n\"${thumbnailFile[4]}\"\nnull:\nnull:\n\"${thumbnailFile[5]}\"\n\"${thumbnailFile[6]}\"\n\"${thumbnailFile[7]}\"\n\"${thumbnailFile[8]}\"\n\"${thumbnailFile[9]}\"\n" > /dev/shm/thumbs.txt
 		
+		# create montage based on file list in txt-file
 		montage \
 			-label '%[basename]' \
 			@/dev/shm/thumbs.txt \
@@ -510,5 +510,6 @@ buildMenuItems
 showSavestateSelector
 
 pkill pngview
+stop_joy2key
 
 log 2 "EXIT"
