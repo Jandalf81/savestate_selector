@@ -26,6 +26,8 @@ command="$4"
 # INI
 showTumbnails="TRUE"
 deleteDelay=10
+sortOrder=0
+
 
 # global variables
 backtitle="Savestate Selector (https://github.com/Jandalf81/savestate_selector)"
@@ -36,7 +38,7 @@ declare -a menuItems
 # 1 ERRORS and WARNING
 # 2 ERRORS, WARNING and INFO
 # 3 ERRORS, WARNING, INFO and DEBUG
-logLevel=3
+logLevel=2
 log=~/logfile.txt
 
 # Prints messages of different severeties to a logfile
@@ -211,59 +213,6 @@ function getSaveAndStatePath ()
 }
 
 function buildMenuItems ()
-{
-	log 2 "()"
-
-	local slot
-	local item
-	local lastModified
-	
-	# check for SRM save
-	if [ -f "${savePath}/${romfilebase}.srm" ]
-	then
-		srmStatus="${GREEN}"
-	else
-		srmStatus="${RED}No "
-	fi
-	
-	# add first menu items
-	menuItems+=("L")
-	menuItems+=("Launch ROM without Savestate (${srmStatus}Battery Save found${NORMAL})")
-	menuItems+=("D")
-	menuItems+=("Delete Savestates")
-	
-	menuItemsDefault=${#menuItems[@]}
-	
-	log 3 "MENU ITEMS WITHOUT SAVESTATES: ${menuItemsDefault}"
-	
-	# add menu item for each state in $statePath
-	while read stateFile
-	do
-		if [ "${stateFile}" == "" ]; then continue; fi
-		
-		log 3 "FOUND STATEFILE \"${stateFile}\""
-		
-		# get SLOT from extension
-		slot="${stateFile#*.}" # get extension only
-		slot=${slot/state/} # search "state" in $slot, replace with nothing
-		if [ "${slot}" == "" ]; then slot="0"; fi # special case for slot 0 which has the extension "state"
-		log 3 "IDENTIFIED AS SLOT \"${slot}\""
-		
-		# add stateFile to menu items
-		lastModified=$(stat --format=%y "${stateFile}")
-		item="Slot ${slot}, last modified ${lastModified%%.*}"
-		menuItems+=("${slot}")
-		menuItems+=("${item}")
-		log 3 "ADDED MENU ITEM: \"${slot} ${item}"
-	done <<< $(find $statePath -type f -iname "${romfilebase}.state*" ! -iname "*.png" ! -iname "*.auto" | sort) # get all STATE files, exclude *.PNG and *.AUTO
-	
-	# TODO sort numerically
-	# TODO sort by lastModified
-	
-	log 3 "MENU ITEMS WITH SAVESTATES: ${#menuItems[@]}"
-}
-
-function buildstateFiles ()
 {
 	log 2 "()"
 	
@@ -571,8 +520,7 @@ log 3 "\$4 COMMAND:\t${command}"
 
 getROMFileName
 getSaveAndStatePath
-#buildMenuItems
-buildstateFiles
+buildMenuItems
 showSavestateSelector
 
 pkill pngview
