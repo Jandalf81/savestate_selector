@@ -257,7 +257,70 @@ function buildMenuItems ()
 		log 3 "ADDED MENU ITEM: \"${slot} ${item}"
 	done <<< $(find $statePath -type f -iname "${romfilebase}.state*" ! -iname "*.png" ! -iname "*.auto" | sort) # get all STATE files, exclude *.PNG and *.AUTO
 	
+	# TODO sort numerically
+	# TODO sort by lastModified
+	
 	log 3 "MENU ITEMS WITH SAVESTATES: ${#menuItems[@]}"
+}
+
+function buildstateFiles ()
+{
+	log 2 "()"
+	
+	declare -a stateFiles
+	
+	# build list of SAVESTATEs
+	while read stateFile
+	do
+		if [ "${stateFile}" == "" ]; then continue; fi
+		
+		# prepare item
+		slot="${stateFile##*.}"
+		slot=${slot/state/}
+		if [ "${slot}" == "" ]; then slot="0"; fi
+		file="${stateFile##*/}"
+		lastModified=$(stat --format=%y "${stateFile}")
+		lastModified="${lastModified%%.*}"
+		text="Slot ${slot}, last modified ${lastModified}"
+		
+		# add item to list
+		stateFiles+=("${slot}|${file}|${lastModified}|${text}")
+	done <<< $(find $statePath -type f -iname "${romfilebase}.state*" ! -iname "*.png" ! -iname "*.auto") # get all STATE files, exclude *.PNG and *.AUTO
+	
+	log 2 "FOUND ${#stateFiles[@]} SAVESTATES"
+	
+	# define sortString
+	case ${sortOrder} in
+		0) sortString="rk 3,3" ;; # LASTMODIFIED (text) DESC
+		1) sortString="k 3,3" ;; # LASTMODIFIED (text)
+		2) sortString="nrk 1,1" ;; # SLOT (numeric) DESC
+		3) sortString="nk 1,1" ;; # SLOT (numeric)
+		*) sortString="rk 3,3" ;; # LASTMODIFIED (text) DESC
+	esac
+	
+	# check for SRM save
+	if [ -f "${savePath}/${romfilebase}.srm" ]
+	then
+		srmStatus="${GREEN}"
+	else
+		srmStatus="${RED}No "
+	fi
+	
+	# add default items to list of menu items
+	menuItems+=("L" "Launch ROM without Savestate (${srmStatus}Battery Save found${NORMAL})")
+	menuItems+=("D" "Delete Savestates")
+	
+	menuItemsDefault=${#menuItems[@]}
+	
+	# add menu items for each SAVESTATE to list of menu items
+	while read stateFile
+	do
+		# split each line
+		IFS="|"
+		read -ra line <<< ${stateFile}
+		
+		menuItems+=("${line[0]}" "${line[3]}") # SLOT ITEM
+	done <<< $(printf "%s\n" "${stateFiles[@]}" | sort -${sortString} -t"|")
 }
 
 function showSavestateSelector ()
@@ -411,6 +474,8 @@ function refreshThumbnailMontage ()
 {
 	log 2 "()"
 	
+	local i=0
+	
 	# only create a new montage if the number of menu items has been changed since the last run
 	if [[ ${oldNumberOfMenuItems} -ne ${#menuItems[@]} ]]
 	then
@@ -429,7 +494,7 @@ function refreshThumbnailMontage ()
 		declare -a thumbnailFile
 		
 		# initialize array
-		for i in $(seq 0 9)
+		for i in 0 1 2 3 4 5 6 7 8 9 # $(seq 0 9)
 		do
 			thumbnailFile[i]=null:
 		done
@@ -506,7 +571,8 @@ log 3 "\$4 COMMAND:\t${command}"
 
 getROMFileName
 getSaveAndStatePath
-buildMenuItems
+#buildMenuItems
+buildstateFiles
 showSavestateSelector
 
 pkill pngview
