@@ -20,24 +20,14 @@ emulator="$2"
 rom="$3"
 command="$4"
 
-# MOVE TO INI
-showTumbnails="TRUE"
-deleteDelay=10
-sortOrder=0
-
+# load INI variables
+source ./savestate_selector.ini
 
 # global variables
 backtitle="Savestate Selector (https://github.com/Jandalf81/savestate_selector)"
 configDir=/opt/retropie/configs
 declare -a menuItems
 
-# -1 No logging at all
-# 0 ERRORS ONLY
-# 1 ERRORS and WARNING
-# 2 ERRORS, WARNING and INFO
-# 3 ERRORS, WARNING, INFO and DEBUG
-logLevel=3
-log=~/logfile.txt
 
 # Prints messages of different severeties to a logfile
 # Each message will look something like this:
