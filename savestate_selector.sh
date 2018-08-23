@@ -339,6 +339,7 @@ function showSavestateDeleter ()
 		--colors \
 		--backtitle "${backtitle}" \
 		--title "Delete savestates" \
+		--ok-label "Delete" \
 		--cancel-label "Back" \
 		--menu "\nWhich savestate is to be ${RED}deleted${NORMAL}?" 20 75 12 \
 			"${menuItems[@]:${menuItemsDefault}}" \
