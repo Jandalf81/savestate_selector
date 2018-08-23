@@ -21,7 +21,7 @@ rom="$3"
 command="$4"
 
 # load INI variables
-source ./savestate_selector.ini
+source ./savestate_selector.cfg
 
 # global variables
 backtitle="Savestate Selector (https://github.com/Jandalf81/savestate_selector)"
@@ -33,6 +33,7 @@ declare -a menuItems
 # Each message will look something like this:
 # <TIMESTAMP>	<SEVERITY>	<CALLING_FUNCTION>	<MESSAGE>
 # needs a set variable $logLevel
+#	-1 > No logging at all
 #	0 > prints ERRORS only
 #	1 > prints ERRORS and WARNINGS
 #	2 > prints ERRORS, WARNINGS and INFO
@@ -57,14 +58,14 @@ function log ()
 			3) level="DEBUG"  ;;
 		esac
 		
-		printf "$(date +%FT%T%:z):\t${level}\t${FUNCNAME[1]}\t${message}\n" >> ${log} 
+		printf "$(date +%FT%T%:z):\t${level}\t${0##*/}\t${FUNCNAME[1]}\t${message}\n" >> ${log} 
 	fi
 }
 
 # COPIED FROM /opt/retropie/supplementary/runcommand/runcommand.sh
 function start_joy2key()
 {
-    log 2 "()"
+    log 3 "()"
 	
 	# get the first joystick device (if not already set)
     if [[ -c "$__joy2key_dev" ]]
@@ -87,7 +88,7 @@ function start_joy2key()
 # COPIED FROM /opt/retropie/supplementary/runcommand/runcommand.sh
 function stop_joy2key() 
 {
-	log 2 "()"
+	log 3 "()"
 	
     if [[ -n "$JOY2KEY_PID" ]]; then
         kill -INT "$JOY2KEY_PID"
@@ -96,7 +97,7 @@ function stop_joy2key()
 
 function getROMFileName ()
 {
-	log 2 "()"
+	log 3 "()"
 	
 	rompath="${rom%/*}" # directory containing $rom
 	romfilename="${rom##*/}" # filename of $rom, including extension
@@ -112,7 +113,7 @@ function getROMFileName ()
 function getConfigValueToKey ()
 {
 	key="$1"
-	log 2 "() \$key=${key}"
+	log 3 "() \$key=${key}"
 	
 	log 3 "LOOKING FOR VALUE \"${key}\" IN ${configDir}/${system}/retroarch.cfg"
 		
@@ -152,7 +153,7 @@ function setConfigValue ()
 	key="$1"
 	value="$2"
 	
-	log 2 "() \$key=${key} \$value=${value}"
+	log 3 "() \$key=${key} \$value=${value}"
 	
 	if [[ $(grep -c --only-matching "^${key} = .*" "${configDir}/${system}/retroarch.cfg") -eq 1 ]]
 	then
@@ -174,7 +175,7 @@ function setConfigValue ()
 
 function getSaveAndStatePath ()
 {
-	log 2 "()"
+	log 3 "()"
 	
 	getConfigValueToKey "savefile_directory"
 	if [[ $? -eq 0 ]] && [ "${value}" != "default" ]
@@ -202,7 +203,7 @@ function getSaveAndStatePath ()
 
 function buildMenuItems ()
 {
-	log 2 "()"
+	log 3 "()"
 	
 	declare -a stateFiles
 	
@@ -266,7 +267,7 @@ function buildMenuItems ()
 
 function showSavestateSelector ()
 {
-	log 2 "()"
+	log 3 "()"
 	
 	local choice
 	local i
@@ -280,7 +281,7 @@ function showSavestateSelector ()
 		
 		start_joy2key # needed to control the dialog with a gamepad
 		
-		if [ "${showTumbnails}" == "TRUE" ]; then refreshThumbnailMontage; fi
+		if [ "${showThumbnails}" == "TRUE" ]; then refreshThumbnailMontage; fi
 		
 		log 3 "WAITING FOR USER INPUT"
 		
@@ -296,24 +297,25 @@ function showSavestateSelector ()
 		log 2 "SELECTED OPTION \"$choice\""
 		
 		# react to choice
-		if [ "${choice}" == "L" ]; then startROM
+		if [ "${choice}" == "" ]; then startROM
+		elif [ "${choice}" == "L" ]; then startROM
 		elif [ "${choice}" == "D" ]; then showSavestateDeleter
 		elif (( ${choice} >= 0 && ${choice} <= 999 )); then startSavestate "${choice}"
 		else startROM
 		fi
 	else
-		log 3 "NO SAVESTATE HAS BEEN FOUND, SKIPPING DIALOG"
+		log 2 "NO SAVESTATE HAS BEEN FOUND, SKIPPING DIALOG"
 	fi
 }
 
 function startROM ()
 {
-	log 2 "()"
+	log 3 "()"
 	
 	log 3 "SETTING DEFAULT CONFIG PARAMETERS"
 	setConfigValue "state_slot" "0"
 	setConfigValue "savestate_auto_load" "false"
-	if [ "${showTumbnails}" == "TRUE" ]; then setConfigValue "savestate_thumbnail_enable" "true"; fi # create THUMBNAILS on SAVESTATE creation
+	if [ "${showThumbnails}" == "TRUE" ]; then setConfigValue "savestate_thumbnail_enable" "true"; fi # create THUMBNAILS on SAVESTATE creation
 	
 	pkill pngview
 	
@@ -322,13 +324,13 @@ function startROM ()
 
 function showSavestateDeleter ()
 {
-	log 2 "()"
+	log 3 "()"
 	
 	local choice
 	
 	log 3 "SHOW MENU DIALOG"
 	
-	if [ "${showTumbnails}" == "TRUE" ]; then refreshThumbnailMontage; fi
+	if [ "${showThumbnails}" == "TRUE" ]; then refreshThumbnailMontage; fi
 	
 	log 3 "WAITING FOR USER INPUT"
 	
@@ -344,18 +346,18 @@ function showSavestateDeleter ()
 			
 	log 2 "SELECTED OPTION \"$choice\""
 	
-	if (( ${choice} >= 0 && ${choice} <= 999 )); then deleteSavestate "$choice" 
-	else showSavestateSelector
+	if [ "${choice}" == "" ]; then showSavestateSelector
+	elif (( ${choice} >= 0 && ${choice} <= 999 )); then deleteSavestate "$choice" 
 	fi
 }
 
 function deleteSavestate ()
 {
 	slot="$1"
-	log 2 "() \$slot=${slot}"
+	log 3 "() \$slot=${slot}"
 	
 	# show DELETE MARKER overlay
-	if [ "${showTumbnails}" == "TRUE" ]; then showDeleteOverlay "${choice}"; fi
+	if [ "${showThumbnails}" == "TRUE" ]; then showDeleteOverlay "${choice}"; fi
 	
 	# ask for confirmation
 	local choice
@@ -401,7 +403,7 @@ function deleteSavestate ()
 			showSavestateDeleter
 		else
 			# there is no more savestate to delete or chose from
-			log 3 "NO MORE SAVESTATE TO DELETE OR START, STARTING ROM NOW"
+			log 2 "NO MORE SAVESTATE TO DELETE OR START, STARTING ROM NOW"
 			startROM
 		fi
 	else
@@ -413,7 +415,7 @@ function deleteSavestate ()
 function showDeleteOverlay ()
 {
 	slot="$1"
-	log 2 "() \$slot=${slot}"
+	log 3 "() \$slot=${slot}"
 	
 	local position
 	local offset
@@ -464,14 +466,14 @@ function showDeleteOverlay ()
 function startSavestate ()
 {
 	slot="$1"
-	log 2 "() \$slot=${slot}"
+	log 3 "() \$slot=${slot}"
 		
-	log 3 "START SAVESTATE FROM SLOT ${slot}"
+	log 2 "START SAVESTATE FROM SLOT ${slot}"
 	
 	# set parameters in CFG
 	setConfigValue "savestate_auto_load" "true" # load SAVESTATE named AUTO
 	setConfigValue "state_slot" "${slot}" # set SLOT to slot of selected SAVESTATE
-	if [ "${showTumbnails}" == "TRUE" ]; then setConfigValue "savestate_thumbnail_enable" "true"; fi # create THUMBNAILS
+	if [ "${showThumbnails}" == "TRUE" ]; then setConfigValue "savestate_thumbnail_enable" "true"; fi # create THUMBNAILS
 	
 	if [[ $slot -eq 0 ]]; then slot=""; fi # special case for slot 0
 	
@@ -481,6 +483,8 @@ function startSavestate ()
 	
 	# copy tumbnail to LAUNCHING image
 	#cp -f "${statePath}/${romfilebase}.state${slot}.png" "${rompath}/images/${romfilebase}-launching.png"
+	
+	log 2 "WILL REMOVE ${statePath}/${romfilebase}.state.auto IN ${deleteDelay} SECONDS..."
 	
 	pkill pngview
 	
@@ -497,7 +501,7 @@ function startSavestate ()
 
 function refreshThumbnailMontage ()
 {
-	log 2 "()"
+	log 3 "()"
 	
 	# only create a new montage if the number of menu items has been changed since the last run
 	if [[ ${oldNumberOfMenuItems} -ne ${#menuItems[@]} ]]
@@ -511,7 +515,7 @@ function refreshThumbnailMontage ()
 			--colors \
 			--backtitle "${backtitle}" \
 			--title "Generating Previews..." \
-			--infobox "\nThis may take some seconds...\n\n(The Previews can be ${YELLOW}disabled${NORMAL} in the configuration)" 10 40 \
+			--infobox "\nThis may take some seconds...\n\n(The Previews can\nbe ${YELLOW}disabled${NORMAL} in the configuration)" 10 40 \
 			2>&1 >/dev/tty
 			
 		declare -a thumbnailFile
@@ -582,6 +586,8 @@ function refreshThumbnailMontage ()
 		
 		log 2 "SHOWING THUMBNAIL MONTAGE"
 		nohup pngview -b 0 -l 10000 "/dev/shm/savestate_selector.png" -x 0 -y 0 &>/dev/null &
+	else
+		log 2 "NO CHANGE, RE-USING THUMBNAIL MONTAGE"
 	fi	
 }
 
@@ -593,12 +599,18 @@ function debugPrintArray ()
 	done
 }
 
-log 2 "()"
+log 3 "()"
 
 log 3 "\$1 SYSTEM:\t${system}"
 log 3 "\$2 EMULATOR:\t${emulator}"
 log 3 "\$3 ROM:\t${rom}"
 log 3 "\$4 COMMAND:\t${command}"
+
+if [ "${enabled}" != "TRUE" ]
+then
+	log 2 "SAVESTATE_SELECTOR IS CURRENTLY DISABLED"
+	exit
+fi
 
 getROMFileName
 getSaveAndStatePath
@@ -607,5 +619,3 @@ showSavestateSelector
 
 pkill pngview
 stop_joy2key
-
-log 2 "EXIT"
