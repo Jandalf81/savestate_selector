@@ -47,7 +47,7 @@ function setConfigValue ()
 	log 3 "() \$key=${key} \$value=${value}"
 	
 	log 2 "UPDATING KEY ${key} TO VALUE ${value} IN savestate_selector.cfg"
-	sed -i "/^${key}=/c\\${key}=\"${value}\"" ./savestate_selector.cfg
+	sed -i "/^${key}=/c\\${key}=\"${value}\"" ~/scripts/savestate_selector/savestate_selector.cfg
 }
 
 function mainMenu ()
