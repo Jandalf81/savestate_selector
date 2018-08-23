@@ -14,16 +14,13 @@ BOLD="\Zb"
 REVERSE="\Zr"
 UNDERLINE="\Zu"
 
-
+# parameters
 system="$1"
 emulator="$2"
 rom="$3"
 command="$4"
 
-#	set -x # START DEBUGGING
-#	set +x # STOP DEBUGGING
-
-# INI
+# MOVE TO INI
 showTumbnails="TRUE"
 deleteDelay=10
 sortOrder=0
@@ -169,16 +166,16 @@ function setConfigValue ()
 	if [[ $(grep -c --only-matching "^${key} = .*" "${configDir}/${system}/retroarch.cfg") -eq 1 ]]
 	then
 		log 3 "UPDATING KEY ${key} TO VALUE ${value} IN ${configDir}/${system}/retroarch.cfg"
-		sed -i "/^${key} = /c\\${key} = \"${value}\"" ${configDir}/${system}/retroarch.cfg
+		sudo sed -i "/^${key} = /c\\${key} = \"${value}\"" ${configDir}/${system}/retroarch.cfg
 	else
 		if [[ $(grep -c --only-matching "^${key} = .*" "${configDir}/all/retroarch.cfg") -eq 1 ]]
 		then
 			log 3 "UPDATING KEY ${key} TO VALUE ${value} IN ${configDir}/all/retroarch.cfg"
-			sed -i "/^${key} = /c\\${key} = \"${value}\"" ${configDir}/all/retroarch.cfg
+			sudo sed -i "/^${key} = /c\\${key} = \"${value}\"" ${configDir}/all/retroarch.cfg
 		else
 			log 3 "ADDING KEY ${key} TO ${configDir}/${system}/retroarch.cfg"
 			# add new parameter above "#include..."
-			sed -i "/^#include \"\/opt\/retropie\/configs\/all\/retroarch.cfg\"/c\\${key} = /c\\${key} = \"${value}\"\n#include \"\/opt\/retropie\/configs\/all\/retroarch.cfg\"" ${configDir}/${system}/retroarch.cfg
+			sudo sed -i "/^#include \"\/opt\/retropie\/configs\/all\/retroarch.cfg\"/c\\${key} = /c\\${key} = \"${value}\"\n#include \"\/opt\/retropie\/configs\/all\/retroarch.cfg\"" ${configDir}/${system}/retroarch.cfg
 		fi
 	fi
 	
@@ -221,6 +218,7 @@ function buildMenuItems ()
 	# build list of SAVESTATEs
 	while read stateFile
 	do
+		# skip empty lines
 		if [ "${stateFile}" == "" ]; then continue; fi
 		
 		# prepare item
@@ -264,6 +262,9 @@ function buildMenuItems ()
 	# add menu items for each SAVESTATE to list of menu items
 	while read stateFile
 	do
+		# skip empty lines
+		if [ "${stateFile}" == "" ]; then continue; fi
+		
 		# split each line
 		IFS="|"
 		read -ra line <<< ${stateFile}
@@ -302,12 +303,12 @@ function showSavestateSelector ()
 		
 		log 2 "SELECTED OPTION \"$choice\""
 		
-		case $choice in
-			L) startROM ;;
-			D) showSavestateDeleter ;;
-			[0-999]) startSavestate "${choice}" ;;
-			*) startROM ;;
-		esac
+		# react to choice
+		if [ "${choice}" == "L" ]; then startROM
+		elif [ "${choice}" == "D" ]; then showSavestateDeleter
+		elif (( ${choice} >= 0 && ${choice} <= 999 )); then startSavestate "${choice}"
+		else startROM
+		fi
 	else
 		log 3 "NO SAVESTATE HAS BEEN FOUND, SKIPPING DIALOG"
 	fi
@@ -351,10 +352,9 @@ function showSavestateDeleter ()
 			
 	log 2 "SELECTED OPTION \"$choice\""
 	
-	case $choice in
-		[0-999]) deleteSavestate "$choice" ;;
-		*) showSavestateSelector ;;
-	esac
+	if (( ${choice} >= 0 && ${choice} <= 999 )); then deleteSavestate "$choice" 
+	else showSavestateSelector
+	fi
 }
 
 function deleteSavestate ()
@@ -362,34 +362,53 @@ function deleteSavestate ()
 	slot="$1"
 	log 2 "() \$slot=${slot}"
 	
-	# TODO Ask for confirmation
+	# ask for confirmation
+	local choice
 	
-	# remove menu item from array (2 entries)
-	for i in "${!menuItems[@]}"
-	do
-		if [ "${menuItems[i]}" == "${slot}" ]
-		then
-			unset -v menuItems[i]
-			unset -v menuItems[++i]
-			break # leave loop
-		fi
-	done
+	log 3 "AWAITING CONFIRMATION"
+	dialog \
+		--colors \
+		--backtitle "${backtitle}" \
+		--title "Confirm deletion" \
+		--yesno "\nDo you really want to ${RED}delete${NORMAL}\n\n ${YELLOW}${statePath}/${romfilebase}.state${slot}${NORMAL}\n\nThis can ${RED}not be undone${NORMAL}!" 20 75 \
+		2>&1 >/dev/tty
 	
-	if [ "${slot}" == "0" ]; then slot=""; fi # special case for slot 0
+	choice=$?
 	
-	# remove Savestate file
-	log 2 "REMOVED STATEFILE \"${statePath}/${romfilebase}.state${slot}\" DISABLED"
-	rm "${statePath}/${romfilebase}.state${slot}"
-	if [ -f "${statePath}/${romfilebase}.state${slot}.png" ]; then rm "${statePath}/${romfilebase}.state${slot}.png"; fi
-
-	if [ ${#menuItems[@]} -gt ${menuItemsDefault} ]
+	log 3 "SELECTED OPTION ${choice}"
+	
+	if [[ ${choice} -eq 0 ]]
 	then
-		# return to showSavestateDeleter
-		showSavestateDeleter
+		# remove menu item from array (2 entries)
+		for i in "${!menuItems[@]}"
+		do
+			if [ "${menuItems[i]}" == "${slot}" ]
+			then
+				unset -v menuItems[i]
+				unset -v menuItems[++i]
+				break # leave loop
+			fi
+		done
+		
+		if [ "${slot}" == "0" ]; then slot=""; fi # special case for slot 0
+		
+		# remove Savestate file
+		log 2 "REMOVED STATEFILE \"${statePath}/${romfilebase}.state${slot}\""
+		rm "${statePath}/${romfilebase}.state${slot}"
+		if [ -f "${statePath}/${romfilebase}.state${slot}.png" ]; then rm "${statePath}/${romfilebase}.state${slot}.png"; fi
+
+		if [ ${#menuItems[@]} -gt ${menuItemsDefault} ]
+		then
+			# return to showSavestateDeleter
+			showSavestateDeleter
+		else
+			# there is no more savestate to delete or chose from
+			log 3 "NO MORE SAVESTATE TO DELETE OR START, STARTING ROM NOW"
+			startROM
+		fi
 	else
-		# there is no more savestate to delete or chose from
-		log 3 "NO MORE SAVESTATE TO DELETE OR START, STARTING ROM NOW"
-		startROM
+		# return to dialog
+		showSavestateDeleter
 	fi
 }
 
@@ -431,8 +450,6 @@ function refreshThumbnailMontage ()
 {
 	log 2 "()"
 	
-#	local i=0
-	
 	# only create a new montage if the number of menu items has been changed since the last run
 	if [[ ${oldNumberOfMenuItems} -ne ${#menuItems[@]} ]]
 	then
@@ -440,7 +457,7 @@ function refreshThumbnailMontage ()
 		
 		pkill pngview
 		
-		# TODO msgbox CREATING PREVIEW
+		# msgbox CREATING PREVIEW
 		dialog \
 			--colors \
 			--backtitle "${backtitle}" \
