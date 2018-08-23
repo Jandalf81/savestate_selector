@@ -456,7 +456,7 @@ function showDeleteOverlay ()
 	if [[ ${posx} -ne 0 ]]
 	then
 		log 3 "SHOWING DELETE MARKER AT ${posx}, ${posy}"
-		nohup pngview -b 0 -l 10001 "~/scripts/savestate_selector/delete.png" -x ${posx} -y ${posy} &> /dev/null &
+		nohup pngview -b 0 -l 10001 "/home/pi/scripts/savestate_selector/delete.png" -x ${posx} -y ${posy} &> /dev/null &
 		
 		# save pid to kill the process later
 		pidDeleteOverlay=$!
@@ -555,7 +555,7 @@ function refreshThumbnailMontage ()
 				let tnF++
 			else
 				log 3 "NO THUMBNAIL FOUND, USING FALLBACK"
-				cp "~/scripts/savestate_selector/no_thumbnail.png" "/dev/shm/${romfilebase}.state${slot}.png"
+				cp "/home/pi/scripts/savestate_selector/no_thumbnail.png" "/dev/shm/${romfilebase}.state${slot}.png"
 				thumbnailFile[tnF]="/dev/shm/${romfilebase}.state${slot}.png"
 				let tnF++
 			fi
