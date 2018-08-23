@@ -15,7 +15,7 @@ UNDERLINE="\Zu"
 
 
 # load INI variables
-source ./savestate_selector.cfg
+source ~/savestate_selector/savestate_selector.cfg
 
 # global variables
 backtitle="Savestate Selector (https://github.com/Jandalf81/savestate_selector)"
