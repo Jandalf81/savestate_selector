@@ -31,6 +31,7 @@ backtitle="Savestate Selector (https://github.com/Jandalf81/savestate_selector)"
 configDir=/opt/retropie/configs
 declare -a menuItems
 
+# -1 No logging at all
 # 0 ERRORS ONLY
 # 1 ERRORS and WARNING
 # 2 ERRORS, WARNING and INFO
@@ -57,7 +58,7 @@ function log ()
 	severity=$1
 	message=$2
 	
-	if [[ ${severity} -le ${logLevel} ]]
+	if (( ${severity} <= ${logLevel} ))
 	then
 		case ${severity} in
 			0) level="ERROR"  ;;
@@ -297,6 +298,7 @@ function showSavestateSelector ()
 			--colors \
 			--backtitle "${backtitle}" \
 			--title "Starting ${romfilename}..." \
+			--no-cancel \
 			--menu "\nPlease select which SAVESTATE to start" 20 75 12 \
 				"${menuItems[@]}" \
 			2>&1 >/dev/tty)
@@ -362,6 +364,9 @@ function deleteSavestate ()
 	slot="$1"
 	log 2 "() \$slot=${slot}"
 	
+	# show DELETE MARKER overlay
+	if [ "${showTumbnails}" == "TRUE" ]; then showDeleteOverlay "${choice}"; fi
+	
 	# ask for confirmation
 	local choice
 	
@@ -370,10 +375,13 @@ function deleteSavestate ()
 		--colors \
 		--backtitle "${backtitle}" \
 		--title "Confirm deletion" \
-		--yesno "\nDo you really want to ${RED}delete${NORMAL}\n\n ${YELLOW}${statePath}/${romfilebase}.state${slot}${NORMAL}\n\nThis can ${RED}not be undone${NORMAL}!" 20 75 \
+		--yesno "\nDo you really want to ${RED}delete${NORMAL}\n\n${YELLOW}${statePath}/${romfilebase}.state${slot}${NORMAL}\n\nThis can ${RED}not be undone${NORMAL}!" 20 75 \
 		2>&1 >/dev/tty
 	
 	choice=$?
+	
+	# remove DELETE MARKER overlay
+	if [ "${pidDeleteOverlay}" != "" ]; then kill -INT ${pidDeleteOverlay}; fi
 	
 	log 3 "SELECTED OPTION ${choice}"
 	
@@ -409,6 +417,57 @@ function deleteSavestate ()
 	else
 		# return to dialog
 		showSavestateDeleter
+	fi
+}
+
+function showDeleteOverlay ()
+{
+	slot="$1"
+	log 2 "() \$slot=${slot}"
+	
+	local position
+	local offset
+	local posx
+	local posy
+	local j=0
+
+	# get index of $menuItem to $slot
+	for i in ${!menuItems[@]}
+	do
+		if [ "${slot}" == "${menuItems[$i]}" ]
+		then
+			offset=$(( $i - $j )) # compute the offset: index of item minus real position (deleting items creates gaps, this compensates these gaps)
+			position=$(( ((${i} - 4 - ${offset}) / 2) + 1 )) # compute the position of the thumbnail to delete
+			
+			log 3 "FOUND SLOT ${slot} AT POSTION ${position}"
+			break
+		fi
+		
+		let j++
+	done
+	
+	# set coords according to $position
+	case ${position} in
+		1) posx=75; posy=40 ;;
+		2) posx=555; posy=40 ;;
+		3) posx=1035; posy=40 ;;
+		4) posx=1515; posy=40 ;;
+		5) posx=75; posy=390 ;;
+		6) posx=1515; posy=390 ;;
+		7) posx=75; posy=740 ;;
+		8) posx=555; posy=740 ;;
+		9) posx=1035; posy=740 ;;
+		10) posx=1515; posy=740 ;;
+		*) posx=0; posy=0 ;;
+	esac
+	
+	if [[ ${posx} -ne 0 ]]
+	then
+		log 3 "SHOWING DELETE MARKER AT ${posx}, ${posy}"
+		nohup pngview -b 0 -l 10001 "/home/pi/delete.png" -x ${posx} -y ${posy} &> /dev/null &
+		
+		# save pid to kill the process later
+		pidDeleteOverlay=$!
 	fi
 }
 
@@ -485,7 +544,7 @@ function refreshThumbnailMontage ()
 			if [[ $mi -lt ${menuItemsDefault} ]] || [[ $(( mi % 2 )) -eq 1 ]]; then continue; fi
 			
 			# stop this after 10 thumbnails
-			if [[ $tnF -ge 10 ]]; then return; fi
+			if [[ $tnF -ge 10 ]]; then break; fi
 			
 			# get SLOT from menuItem
 			slot=${menuItems[mi]}
