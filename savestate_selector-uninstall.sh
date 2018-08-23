@@ -213,8 +213,8 @@ function uninstaller ()
 	1PNGVIEW
 	2IMAGEMAGICK
 	3SAVESTATE_SELECTOR
-	#4RUNCOMMAND
-	#5Finalize
+	4RUNCOMMAND
+	5Finalize
 	
 	dialogShowSummary
 }
@@ -224,7 +224,7 @@ function 1PNGVIEW ()
 	log 3 "1 START"
 # 1a. Remove PNGVIEW binary
 	log 3 "1a START"
-	updateStep "1a" "in progress" 16
+	updateStep "1a" "in progress" 0
 	
 	if [ -f /usr/bin/pngview ]
 	then
@@ -232,15 +232,15 @@ function 1PNGVIEW ()
 			sudo rm /usr/bin/pngview >> "${log}" &&
 			sudo rm /usr/lib/libraspidmx.so.1 >> "${log}" &&
 			log 3 "1a DONE" &&
-			updateStep "1a" "done" 24
+			updateStep "1a" "done" 16
 		} || { # catch
 			log 3 "1a ERROR" &&
-			updateStep "1a" "failed" 16 &&
+			updateStep "1a" "failed" 0 &&
 			exit
 		}
 	else
 		log 3 "1a NOT FOUND" &&
-		updateStep "1a" "not found" 24
+		updateStep "1a" "not found" 16
 	fi
 	
 	log 3 "1 DONE"
@@ -252,7 +252,7 @@ function 2IMAGEMAGICK ()
 	
 # 2a. Remove IMAGEMAGICK binary
 	log 3 "2a START"
-	updateStep "2a" "in progress" 24
+	updateStep "2a" "in progress" 16
 	
 	if [ -f /usr/bin/convert ]
 	then
@@ -262,7 +262,7 @@ function 2IMAGEMAGICK ()
 			updateStep "2a" "done" 32
 		} || { # catch
 			log 3 "2a ERROR" &&
-			updateStep "2a" "failed" 24 &&
+			updateStep "2a" "failed" 16 &&
 			exit
 		}
 	else
@@ -279,7 +279,7 @@ function 3SAVESTATE_SELECTOR ()
 	
 # 3a. Remove SAVESTATE_SELECTOR files
 	log 3 "3a START"
-	updateStep "3a" "in progress" 24
+	updateStep "3a" "in progress" 32
 	
 	if [ -f ~/scripts/savestate_selector/savestate_selector.sh ]
 	then
@@ -287,7 +287,7 @@ function 3SAVESTATE_SELECTOR ()
 			sudo rm -f ~/scripts/savestate_selector/savestate_selector-install.* >> "${log}" &&
 			sudo rm -f ~/scripts/savestate_selector/savestate_selector.* >> "${log}" &&
 			log 3 "3a DONE" &&
-			updateStep "3a" "done" 40
+			updateStep "3a" "done" 48
 		} || { # catch
 			log 3 "3a ERROR" &&
 			updateStep "3a" "failed" 32 &&
@@ -295,12 +295,12 @@ function 3SAVESTATE_SELECTOR ()
 		}
 	else
 		log 3 "3a NOT FOUND"
-		updateStep "3a" "not found" 40
+		updateStep "3a" "not found" 48
 	fi
 	
 # 3b. Remove SAVESTATE_SELECTOR menu item
 	log 3 "3b START"
-	updateStep "3b" "in progress" 40
+	updateStep "3b" "in progress" 48
 	
 	local found=0
 		
@@ -335,12 +335,56 @@ function 3SAVESTATE_SELECTOR ()
 	fi
 	
 	case $found in
-		0) updateStep "3b" "not found" 48  ;;
-		1) updateStep "3b" "done" 48  ;;
-		2) updateStep "3b" "done" 48  ;;
+		0) updateStep "3b" "not found" 64  ;;
+		1) updateStep "3b" "done" 64		;;
+		2) updateStep "3b" "done" 64  ;;
 	esac
 	
 	log 3 "DONE"
+}
+
+function 4RUNCOMMAND ()
+{
+	log 3 "4 START"
+	
+# 4a. Remove call from RUNCOMMAND-ONSTART
+	log 3 "4a START"
+	updateStep "4a" "in progress" 64
+	
+	if [[ $(grep -c "~/scripts/savestate_selector/savestate_selector.sh" /opt/retropie/configs/all/runcommand-onstart.sh) -gt 0 ]]
+	then
+	{ #try
+		sed -i "/~\/scripts\/savestate_selector\/savestate_selector.sh /d" /opt/retropie/configs/all/runcommand-onstart.sh &&
+		log 3 "4a DONE" &&
+		updateStep "4a" "done" 80
+	} || { # catch
+		log 3 "4a ERROR" &&
+		updateStep "4a" "failed" 64
+	}
+	else
+		log 3 "4a NOT FOUND"
+		updateStep "4a" "not found" 80
+	fi
+}
+
+function 5Finalize ()
+{
+	log 3 "5 START"
+
+# 8a. Remove UNINSTALL script
+	log 3 "5a START"
+	updateStep "5a" "in progress" 80
+	
+	# move LOGFILE to HOME
+	mv ~/scripts/savestate_selector/savestate_selector-uninstall.log ~
+	
+	# remove savestate_selector directory
+	rm -rf ~/scripts/savestate_selector
+	
+	log 3 "5a DONE"
+	updateStep "8a" "done" 100
+	
+	log 3 "5 DONE"
 }
 
 

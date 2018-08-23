@@ -147,8 +147,6 @@ function initSteps ()
 	steps+=("	3c. Configure SAVESTATE_SELECTOR		[ waiting...  ]")
 	steps+=("4. RUNCOMMAND")
 	steps+=("	4a. Add call to RUNCOMMAND-ONSTART		[ waiting...  ]")
-	steps+=("5. Finalizing")
-	steps+=("	5a. Save configuration				[ waiting...  ]")
 }
 
 function updateStep ()
@@ -206,6 +204,7 @@ function installer ()
 	1PNGVIEW
 	2IMAGEMAGICK
 	3SAVESTATE_SELECTOR
+	4RUNCOMMAND
 	
 	dialogShowSummary
 }
@@ -214,38 +213,38 @@ function installer ()
 function 1PNGVIEW ()
 {
 # 1a. Testing for PNGVIEW binary
-	updateStep "1a" "in progress" 20
+	updateStep "1a" "in progress" 0
 	
 	1aTestPNGVIEW
 	if [[ $? -eq 0 ]]
 	then
-		updateStep "1a" "found" 25
-		updateStep "1b" "skipped" 30
-		updateStep "1c" "skipped" 35
+		updateStep "1a" "found" 11
+		updateStep "1b" "skipped" 22
+		updateStep "1c" "skipped" 33
 	else
-		updateStep "1a" "not found" 25
+		updateStep "1a" "not found" 11
 
 # 1b. Getting PNGVIEW source
-		updateStep "1b" "in progress" 25
+		updateStep "1b" "in progress" 11
 		
 		1bGetPNGVIEWsource
 		if [[ $? -eq 0 ]]
 		then
-			updateStep "1b" "done" 30
+			updateStep "1b" "done" 22
 			
 # 1c. Compiling PNGVIEW
-			updateStep "1c" "in progress" 30
+			updateStep "1c" "in progress" 22
 			
 			1cCompilePNGVIEW
 			if [[ $? -eq 0 ]]
 			then
-				updateStep "1c" "done" 35
+				updateStep "1c" "done" 33
 			else
-				updateStep "1c" "failed" 30
+				updateStep "1c" "failed" 22
 				exit
 			fi
 		else
-			updateStep "1b" "failed" 25
+			updateStep "1b" "failed" 22
 			exit
 		fi
 	fi
@@ -334,24 +333,24 @@ function 1cCompilePNGVIEW ()
 function 2IMAGEMAGICK ()
 {
 # 2a. Testing for IMAGEMAGICK
-	updateStep "2a" "in progress" 35
+	updateStep "2a" "in progress" 33
 	
 	2aTestIMAGEMAGICK
 	if [[ $? -eq 0 ]]
 	then
-		updateStep "2a" "found" 40
-		updateStep "2b" "skipped" 45
+		updateStep "2a" "found" 44
+		updateStep "2b" "skipped" 55
 	else
-		updateStep "2a" "not found" 40
+		updateStep "2a" "not found" 44
 		
 # 2b. Getting IMAGEMAGICK
-		updateStep "2b" "in progress" 40
+		updateStep "2b" "in progress" 44
 		2bInstallIMAGEMAGICK
 		if [[ $? -eq 0 ]]
 		then
-			updateStep "2b" "done" 45
+			updateStep "2b" "done" 55
 		else
-			updateStep "2b" "failed" 40
+			updateStep "2b" "failed" 44
 		fi
 	fi
 }
@@ -397,28 +396,35 @@ function 2bInstallIMAGEMAGICK ()
 
 function 3SAVESTATE_SELECTOR ()
 {
-	updateStep "3a" "in progress"
+	updateStep "3a" "in progress" 55
 	
 	3aDownloadFiles
 	if [[ $? -eq 0 ]]
 	then
-		updateStep "3a" "done" 50
+		updateStep "3a" "done" 66
 	else
-		updateStep "3a" "failed" 45
+		updateStep "3a" "failed" 55
 		exit
 	fi
 	
 # 3b. Creating SAVESTATE_SELECTOR menu item
-	updateStep "3b" "in progress" 50
+	updateStep "3b" "in progress" 66
 	
 	3bCreateSAVESTATE_SELECTORMenuItem
 	if [[ $? -eq 0 ]]
 	then
-		updateStep "3b" "done" 55
+		updateStep "3b" "done" 77
 	else
-		updateStep "3b" "failed" 50
+		updateStep "3b" "failed" 66
 		exit
 	fi
+	
+# 3c. Configure SAVESTATE_SELECTOR
+	updateStep "3c" "in progress" 77
+	
+	~/scripts/savestate_selector/savestate_selector-menu.sh
+	
+	updateStep "3c" "done" 88
 }
 
 function 3aDownloadFiles ()
@@ -436,6 +442,11 @@ function 3aDownloadFiles ()
 		wget -N -P ~/scripts/savestate_selector ${url}/${branch}/savestate_selector.sh --append-output="${log}" &&
 		wget -N -P ~/scripts/savestate_selector ${url}/${branch}/savestate_selector-menu.sh --append-output="${log}" &&
 		wget -N -P ~/scripts/savestate_selector ${url}/${branch}/savestate_selector-uninstall.sh --append-output="${log}" &&
+		
+		# get other files
+		wget -N -P ~/scripts/savestate_selector ${url}/${branch}/savestate_selector.cfg --append-output="${log}" &&
+		wget -N -P ~/scripts/savestate_selector ${url}/${branch}/delete.png --append-output="${log}" &&
+		wget -N -P ~/scripts/savestate_selector ${url}/${branch}/no_thumbnail.png --append-output="${log}" &&
 		
 		# change mod
 		chmod +x ~/scripts/savestate_selector/savestate_selector.sh >> "${log}" &&
@@ -486,6 +497,57 @@ function 3bCreateSAVESTATE_SELECTORMenuItem ()
 		return 0
 	fi
 }
+
+function 4RUNCOMMAND ()
+{
+# 4a. Add call to RUNCOMMAND-ONSTART
+	updateStep "4a" "in progress" 88
+	
+	4aRUNCOMMAND-ONSTART
+	case $? in
+		0) updateStep "4a" "found" 99  ;;
+		1) updateStep "4a" "created" 99 ;;
+	esac
+}
+
+function 4aRUNCOMMAND-ONSTART ()
+{
+	log 3 "START"
+	
+	# check if RUNCOMMAND-ONSTART.sh exists
+	if [ -f /opt/retropie/configs/all/runcommand-onstart.sh ]
+	then
+		log 3 "FILE FOUND"
+		
+		# check if there's a call to savestate_selector
+		if grep -Fq "~/scripts/savestate_selector/savestate_selector.sh" /opt/retropie/configs/all/runcommand-onstart.sh
+		then
+			log 3 "CALL FOUND"
+			
+			return 0
+		else
+			log 3 "CALL NOT FOUND"
+			
+			# add call
+			echo "~/scripts/savestate_selector/savestate_selector.sh \"down\" \"\$1\" \"\$2\" \"\$3\" \"\$4\"" >> /opt/retropie/configs/all/runcommand-onstart.sh	
+
+			log 3 "CALL CREATED"
+			
+			return 1
+		fi
+	else
+		log 3 "FILE NOT FOUND"
+	
+		echo "#!/bin/bash" > /opt/retropie/configs/all/runcommand-onstart.sh
+		echo "~/scripts/savestate_selector/savestate_selector.sh \"down\" \"\$1\" \"\$2\" \"\$3\" \"\$4\"" >> /opt/retropie/configs/all/runcommand-onstart.sh
+		
+		log 3 "FILE CREATED"
+		
+		return 1
+	fi
+}
+
+
 
 
 ########
