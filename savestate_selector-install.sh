@@ -304,7 +304,7 @@ function 1cCompilePNGVIEW ()
 	{ #try
 		# compile
 		# cd ~/raspidmx-master &&
-		make --directory=~/raspidmx-master >> "${log}" &&
+		make --directory=~/raspidmx-master 2>&1 >> "${log}" &&
 	
 		# move binary files
 		sudo mv ~/raspidmx-master/pngview/pngview /usr/bin >> "${log}" &&
@@ -529,7 +529,7 @@ function 4aRUNCOMMAND-ONSTART ()
 			log 3 "CALL NOT FOUND"
 			
 			# add call
-			echo "~/scripts/savestate_selector/savestate_selector.sh \"down\" \"\$1\" \"\$2\" \"\$3\" \"\$4\"" >> /opt/retropie/configs/all/runcommand-onstart.sh	
+			echo "~/scripts/savestate_selector/savestate_selector.sh \"\$1\" \"\$2\" \"\$3\" \"\$4\"" >> /opt/retropie/configs/all/runcommand-onstart.sh	
 
 			log 3 "CALL CREATED"
 			
@@ -539,7 +539,7 @@ function 4aRUNCOMMAND-ONSTART ()
 		log 3 "FILE NOT FOUND"
 	
 		echo "#!/bin/bash" > /opt/retropie/configs/all/runcommand-onstart.sh
-		echo "~/scripts/savestate_selector/savestate_selector.sh \"down\" \"\$1\" \"\$2\" \"\$3\" \"\$4\"" >> /opt/retropie/configs/all/runcommand-onstart.sh
+		echo "~/scripts/savestate_selector/savestate_selector.sh \"\$1\" \"\$2\" \"\$3\" \"\$4\"" >> /opt/retropie/configs/all/runcommand-onstart.sh
 		
 		log 3 "FILE CREATED"
 		
