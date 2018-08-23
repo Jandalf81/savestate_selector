@@ -21,7 +21,7 @@ rom="$3"
 command="$4"
 
 # load INI variables
-source ~/savestate_selector/savestate_selector.cfg
+source ~/scripts/savestate_selector/savestate_selector.cfg
 
 # global variables
 backtitle="Savestate Selector (https://github.com/Jandalf81/savestate_selector)"
