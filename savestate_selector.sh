@@ -19,6 +19,7 @@ system="$1"
 emulator="$2"
 rom="$3"
 command="$4"
+from="$5"
 
 # load INI variables
 source ~/scripts/savestate_selector/savestate_selector.cfg
@@ -224,6 +225,14 @@ function buildMenuItems ()
 	menuItems+=("L" "Launch ROM without Savestate (${srmStatus}Battery Save found${NORMAL})")
 	menuItems+=("D" "Delete Savestates")
 	
+	# add more items if the script has been started via RUNCOMMAND-MENU / USER SCRIPTS
+	if [ "${from}" == "runcommand-menu" ]
+	then
+		log 3 "STARTED FROM RUNCOMMAND-MENU, ADDING MORE MENU ITEMS"
+		menuItems+=("B" "Back to RUNCOMMAND")
+		menuItems+=("X" "Exit to EmulationStation")
+	fi
+	
 	menuItemsDefault=${#menuItems[@]}
 	
 	# add menu items for each SAVESTATE to list of menu items
@@ -278,6 +287,8 @@ function showSavestateSelector ()
 		if [ "${choice}" == "" ]; then startROM
 		elif [ "${choice}" == "L" ]; then startROM
 		elif [ "${choice}" == "D" ]; then showSavestateDeleter
+		elif [ "${choice}" == "B" ]; then backToRUNCOMMAND
+		elif [ "${choice}" == "X" ]; then exitToEmulationStation
 		elif (( ${choice} >= 0 && ${choice} <= 999 )); then startSavestate "${choice}"
 		else startROM
 		fi
@@ -297,8 +308,9 @@ function startROM ()
 	if [ "${showThumbnails}" == "TRUE" ]; then setConfigValue "savestate_thumbnail_enable" "true"; fi # create THUMBNAILS on SAVESTATE creation
 	
 	pkill pngview
-	
 	joy2keyStop
+	
+	exit 2
 }
 
 function showSavestateDeleter ()
@@ -467,7 +479,6 @@ function startSavestate ()
 	log 2 "WILL REMOVE ${statePath}/${romfilebase}.state.auto IN ${deleteDelay} SECONDS..."
 	
 	pkill pngview
-	
 	joy2keyStop
 	
 	# remove AUTO after 10 seconds in background task (so the ROM is already started)
@@ -477,6 +488,8 @@ function startSavestate ()
 		#rm "${rompath}/images/${romfilebase}-launching.png"
 		log 2 "REMOVED ${statePath}/${romfilebase}.state.auto"
 	) &
+	
+	exit 2
 }
 
 function refreshThumbnailMontage ()
@@ -579,6 +592,26 @@ function debugPrintArray ()
 	done
 }
 
+function backToRUNCOMMAND ()
+{
+	log 2 "BACK TO RUNCOMMAND-MENU"
+	
+	pkill pngview
+	joy2keyStop
+	
+	exit 0
+}
+
+function exitToEmulationStation ()
+{
+	log 2 "EXIT TO EMULATIONSTATION"
+
+	pkill pngview
+	joy2keyStop
+	
+	exit 1
+}
+
 log 3 "()"
 
 log 3 "\$1 SYSTEM:\t${system}"
@@ -586,7 +619,7 @@ log 3 "\$2 EMULATOR:\t${emulator}"
 log 3 "\$3 ROM:\t${rom}"
 log 3 "\$4 COMMAND:\t${command}"
 
-if [ "${enabled}" != "TRUE" ]
+if [ "${enabled}" != "TRUE" ] && [ "${from}" != "runcommand-menu" ]
 then
 	log 2 "SAVESTATE_SELECTOR IS CURRENTLY DISABLED"
 	exit
