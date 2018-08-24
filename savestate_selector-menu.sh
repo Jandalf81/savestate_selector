@@ -67,6 +67,8 @@ function mainMenu ()
 			--default-item "${choice}" \
 			--cancel-label "Exit" \
 			--menu "\nWhat do you want to do?" 25 75 20 \
+				S "Toggle RUNCOMMAND-ONSTART (currently ${statusRUNCOMMAND_ONSTART})" \
+				M "Toggle RUNCOMMAND-MENU (currently ${statusRUNCOMMAND_MENU})" \
 				0 "Enable SAVESTATE_SELECTOR (currently ${statusEnabled})" \
 				1 "Show thumbnails (currently ${statusShowThumbnails})" \
 				2 "Set delay to delete AUTO savestate (currently ${deleteDelay} seconds)" \
@@ -77,6 +79,8 @@ function mainMenu ()
 		log 3 "SELECTED OPTION ${choice}"
 			
 		case ${choice} in
+			S) toggleRUNCOMMAND-ONSTART ;;
+			M) toggleRUNCOMMAND-MENU ;;
 			0) toggleEnabled ;;
 			1) toggleShowThumbnails ;;
 			2) setDeleteDelay ;;
@@ -91,6 +95,23 @@ function getStatusOfParameters ()
 {
 	log 3 "()"
 	
+	# RUNCOMMAND-ONSTART
+	if [[ $(grep -c "^~/scripts/savestate_selector/savestate_selector.sh" /opt/retropie/configs/all/runcommand-onstart.sh) -gt 0 ]]
+	then
+		statusRUNCOMMAND_ONSTART="${GREEN}ENABLED${NORMAL}"
+	else                 
+		statusRUNCOMMAND_ONSTART="${RED}DISABLED${NORMAL}"
+	fi
+	
+	# RUNCOMMAND-MENU
+	if [ -f /opt/retropie/configs/all/runcommand-menu/savestate_selector.sh ]
+	then
+		statusRUNCOMMAND_MENU="${GREEN}ENABLED${NORMAL}"
+	else
+		statusRUNCOMMAND_MENU="${RED}DISABLED${NORMAL}"
+	fi
+	
+	# enabled
 	if [ "${enabled}" == "TRUE" ]
 	then
 		statusEnabled="${GREEN}ENABLED${NORMAL}"
@@ -98,6 +119,7 @@ function getStatusOfParameters ()
 		statusEnabled="${RED}DISABLED${NORMAL}"
 	fi
 	
+	# showThumbnails
 	if [ "${showThumbnails}" == "TRUE" ]
 	then
 		statusShowThumbnails="${GREEN}ENABLED${NORMAL}"
@@ -105,6 +127,7 @@ function getStatusOfParameters ()
 		statusShowThumbnails="${RED}DISABLED${NORMAL}"
 	fi
 	
+	# sortOrder
 	case ${sortOrder} in
 		0) statusSortOrder="last modified DESC" ;;
 		1) statusSortOrder="last modified" ;;
@@ -113,6 +136,7 @@ function getStatusOfParameters ()
 		*) statusSortOrder="unknown" ;;
 	esac
 	
+	# logLevel
 	case ${logLevel} in
 		-1) statusLogLevel="No logging" ;;
 		0) statusLogLevel="ERROR only" ;;
@@ -236,6 +260,75 @@ function setLogLevel ()
 		
 		setConfigValue "logLevel" "${logLevel}"
 	fi		
+}
+
+function toggleRUNCOMMAND-ONSTART ()
+{
+	log 3 "()"
+	
+	if [ "${statusRUNCOMMAND_ONSTART}" == "${GREEN}ENABLED${NORMAL}" ]
+	then
+		removeCallFromRUNCOMMAND-ONSTART
+	else
+		addCallToRUNCOMMAND-ONSTART
+	fi
+}
+
+function addCallToRUNCOMMAND-ONSTART ()
+{
+	if [ -f /opt/retropie/configs/all/runcommand-onstart.sh ]
+	then
+		log 3 "FILE FOUND, ADDING CALL"
+		printf "~/scripts/savestate_selector/savestate_selector.sh \"\$1\" \"\$2\" \"\$3\" \"\$4\"" >> /opt/retropie/configs/all/runcommand-onstart.sh
+		if [[ $? -ne 0 ]]; then log 1 "ERROR ADDING CALL"; return 1; fi
+	else
+		log 3 "FILE NOT FOUND, CREATING"
+		printf "#!/bin/bash\n~/scripts/savestate_selector/savestate_selector.sh \"\$1\" \"\$2\" \"\$3\" \"\$4\"" > /opt/retropie/configs/all/runcommand-onstart.sh
+		if [[ $? -ne 0 ]]; then log 1 "ERROR CREATING FILE"; return 1; fi
+	fi
+	
+	return 0
+}
+
+function removeCallFromRUNCOMMAND-ONSTART ()
+{
+	log 3 "REMOVING CALL"
+	sed -i "/~\/scripts\/savestate_selector\/savestate_selector.sh /d" /opt/retropie/configs/all/runcommand-onstart.sh
+	if [[ $? -ne 0 ]]; then log 1 "ERROR REMOVING CALL"; return 1; fi
+	
+	return 0
+}
+
+function toggleRUNCOMMAND-MENU ()
+{
+	log 3 "()"
+	
+	if [ "${statusRUNCOMMAND_MENU}" == "${GREEN}ENABLED${NORMAL}" ]
+	then
+		removeFromRUNCOMMAND-MENU
+	else
+		addToRUNCOMMAND-MENU
+	fi
+}
+
+function addToRUNCOMMAND-MENU ()
+{
+	if [ ! -d "/opt/retropie/configs/all/runcommand-menu" ]; then mkdir "/opt/retropie/configs/all/runcommand-menu"; fi
+	
+	log 3 "CREATE FILE"
+	printf "#!/bin/bash\n~/scripts/savestate_selector/savestate_selector.sh \"\$1\" \"\$2\" \"\$3\" \"\$4\" \"runcommand-menu\"" > /opt/retropie/configs/all/runcommand-menu/savestate_selector.sh
+	if [[ $? -ne 0 ]]; then log 1 "ERROR CREATING FILE"; return 1; fi
+	
+	return 0
+}
+
+function removeFromRUNCOMMAND-MENU ()
+{
+	log 3 "REMOVE FILE"
+	rm /opt/retropie/configs/all/runcommand-menu/savestate_selector.sh
+	if [[ $? -ne 0 ]]; then log 1 "ERROR REMOVING FILE"; return 1; fi
+	
+	return 0
 }
 
 mainMenu
