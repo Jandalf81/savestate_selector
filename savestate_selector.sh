@@ -28,7 +28,16 @@ backtitle="Savestate Selector (https://github.com/Jandalf81/savestate_selector)"
 configDir=/opt/retropie/configs
 declare -a menuItems
 
+# import HELPERS.SH
+# this script uses the following functions from there
+# 	joy2keyStart()
+# 	joy2keyStop()
+# needs the variable $scriptdor to be set
+source ~/RetroPie-Setup/scriptmodules/helpers.sh
+scriptdir=~/RetroPie-Setup
 
+
+function log ()
 # Prints messages of different severeties to a logfile
 # Each message will look something like this:
 # <TIMESTAMP>	<SEVERITY>	<CALLING_FUNCTION>	<MESSAGE>
@@ -44,7 +53,6 @@ declare -a menuItems
 # log 1 "This is a WARNING"
 # log 2 "This is just an INFO"
 # log 3 "This is a DEBUG message"
-function log ()
 {
 	severity=$1
 	message=$2
@@ -60,39 +68,6 @@ function log ()
 		
 		printf "$(date +%FT%T%:z):\t${level}\t${0##*/}\t${FUNCNAME[1]}\t${message}\n" >> ${log} 
 	fi
-}
-
-# COPIED FROM /opt/retropie/supplementary/runcommand/runcommand.sh
-function start_joy2key()
-{
-    log 3 "()"
-	
-	# get the first joystick device (if not already set)
-    if [[ -c "$__joy2key_dev" ]]
-	then
-        JOY2KEY_DEV="$__joy2key_dev"
-    else
-        JOY2KEY_DEV="/dev/input/jsX"
-    fi
-    # if joy2key.py is installed run it with cursor keys for axis, and enter + tab for buttons 0 and 1
-    if [[ -f "/opt/retropie/supplementary/runcommand/joy2key.py" && -n "$JOY2KEY_DEV" ]] && ! pgrep -f joy2key.py >/dev/null
-	then
-
-        # call joy2key.py: arguments are curses capability names or hex values starting with '0x'
-        # see: http://pubs.opengroup.org/onlinepubs/7908799/xcurses/terminfo.html
-        "/opt/retropie/supplementary/runcommand/joy2key.py" "$JOY2KEY_DEV" kcub1 kcuf1 kcuu1 kcud1 0x0a 0x09 &
-        JOY2KEY_PID=$!
-    fi
-}
-
-# COPIED FROM /opt/retropie/supplementary/runcommand/runcommand.sh
-function stop_joy2key() 
-{
-	log 3 "()"
-	
-    if [[ -n "$JOY2KEY_PID" ]]; then
-        kill -INT "$JOY2KEY_PID"
-    fi
 }
 
 function getROMFileName ()
@@ -157,15 +132,15 @@ function setConfigValue ()
 	
 	if [[ $(grep -c --only-matching "^${key} = .*" "${configDir}/${system}/retroarch.cfg") -eq 1 ]]
 	then
-		log 3 "UPDATING KEY ${key} TO VALUE ${value} IN ${configDir}/${system}/retroarch.cfg"
+		log 2 "UPDATING KEY ${key} TO VALUE ${value} IN ${configDir}/${system}/retroarch.cfg"
 		sudo sed -i "/^${key} = /c\\${key} = \"${value}\"" ${configDir}/${system}/retroarch.cfg
 	else
 		if [[ $(grep -c --only-matching "^${key} = .*" "${configDir}/all/retroarch.cfg") -eq 1 ]]
 		then
-			log 3 "UPDATING KEY ${key} TO VALUE ${value} IN ${configDir}/all/retroarch.cfg"
+			log 2 "UPDATING KEY ${key} TO VALUE ${value} IN ${configDir}/all/retroarch.cfg"
 			sudo sed -i "/^${key} = /c\\${key} = \"${value}\"" ${configDir}/all/retroarch.cfg
 		else
-			log 3 "ADDING KEY ${key} TO ${configDir}/${system}/retroarch.cfg"
+			log 2 "ADDING KEY ${key} TO ${configDir}/${system}/retroarch.cfg"
 			# add new parameter above "#include..."
 			sudo sed -i "/^#include \"\/opt\/retropie\/configs\/all\/retroarch.cfg\"/c\\${key} = /c\\${key} = \"${value}\"\n#include \"\/opt\/retropie\/configs\/all\/retroarch.cfg\"" ${configDir}/${system}/retroarch.cfg
 		fi
@@ -279,7 +254,10 @@ function showSavestateSelector ()
 	then
 		log 3 "AT LEAST 1 SAVESTATE HAS BEEN FOUND, SHOWING DIALOG"
 		
-		start_joy2key # needed to control the dialog with a gamepad
+		# start JOY2KEY from the sourced file with cursor key for axis/DPAD, ENTER for A, TAB for B
+		joy2keyStart kcub1 kcuf1 kcuu1 kcud1 0x0a 0x09
+		
+		log 2 "STARTED joy2key WITH RETURN CODE $?, PID ${__joy2key_pid}"
 		
 		if [ "${showThumbnails}" == "TRUE" ]; then refreshThumbnailMontage; fi
 		
@@ -305,6 +283,7 @@ function showSavestateSelector ()
 		fi
 	else
 		log 2 "NO SAVESTATE HAS BEEN FOUND, SKIPPING DIALOG"
+		startROM
 	fi
 }
 
@@ -319,7 +298,7 @@ function startROM ()
 	
 	pkill pngview
 	
-	stop_joy2key
+	joy2keyStop
 }
 
 function showSavestateDeleter ()
@@ -489,7 +468,7 @@ function startSavestate ()
 	
 	pkill pngview
 	
-	stop_joy2key
+	joy2keyStop
 	
 	# remove AUTO after 10 seconds in background task (so the ROM is already started)
 	(
@@ -619,4 +598,4 @@ buildMenuItems
 showSavestateSelector
 
 pkill pngview
-stop_joy2key
+joy2keyStop
