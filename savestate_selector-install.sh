@@ -529,7 +529,7 @@ function 4aRUNCOMMAND-ONSTART ()
 			log 3 "CALL NOT FOUND"
 			
 			# add call
-			echo "~/scripts/savestate_selector/savestate_selector.sh \"\$1\" \"\$2\" \"\$3\" \"\$4\"" >> /opt/retropie/configs/all/runcommand-onstart.sh	
+			printf "\n~/scripts/savestate_selector/savestate_selector.sh \"\$1\" \"\$2\" \"\$3\" \"\$4\"\n" >> /opt/retropie/configs/all/runcommand-onstart.sh	
 
 			log 3 "CALL CREATED"
 			
@@ -538,8 +538,7 @@ function 4aRUNCOMMAND-ONSTART ()
 	else
 		log 3 "FILE NOT FOUND"
 	
-		echo "#!/bin/bash" > /opt/retropie/configs/all/runcommand-onstart.sh
-		echo "~/scripts/savestate_selector/savestate_selector.sh \"\$1\" \"\$2\" \"\$3\" \"\$4\"" >> /opt/retropie/configs/all/runcommand-onstart.sh
+		printf "#!/bin/bash\n~/scripts/savestate_selector/savestate_selector.sh \"\$1\" \"\$2\" \"\$3\" \"\$4\"\n" > /opt/retropie/configs/all/runcommand-onstart.sh
 		
 		log 3 "FILE CREATED"
 		
