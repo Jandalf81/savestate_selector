@@ -359,18 +359,57 @@ function deleteSavestate ()
 		--colors \
 		--backtitle "${backtitle}" \
 		--title "Confirm deletion" \
+		--defaultno \
 		--yesno "\nDo you really want to ${RED}delete${NORMAL}\n\n${YELLOW}${statePath}/${romfilebase}.state${slot}${NORMAL}\n\nThis can ${RED}not be undone${NORMAL}!" 20 75 \
 		2>&1 >/dev/tty
 	
 	choice=$?
-	
-	# remove DELETE MARKER overlay
-	if [ "${pidDeleteOverlay}" != "" ]; then kill -INT ${pidDeleteOverlay}; fi
-	
 	log 3 "SELECTED OPTION ${choice}"
 	
 	if [[ ${choice} -eq 0 ]]
 	then
+		# check if RCLONE_SCRIPT is also installed, then offer to delete from remote
+		if [ -f ~/scripts/rclone_script/rclone_script.sh ]
+		then
+			# confirm again to also delete files from remote
+			log 2 "RCLONE_SCRIPT detected"
+			dialog \
+				--colors \
+				--backtitle "${backtitle}" \
+				--title "Confirm deletion from remote" \
+				--defaultno \
+				--yesno "\nIt seems you also use RCLONE_SCRIPT. Do you want to ${RED}delete${NORMAL} the savestate from your remote? If you don't, the savestate will be ${YELLOW}re-downloaded${NORMAL} on the next start." 20 75 \
+				2>&1 > /dev/tty
+				
+			choice=$?
+			
+			# answer was YES so delete file from remote
+			if [ ${choice} -eq 0 ]
+			then
+				log 2 "Deleting files from remote..."
+				
+				# special case for slot 0
+				if [ "${slot}" == "0" ]
+				then 
+					slotRemote=""
+				else
+					slotRemote="${slot}"
+				fi 
+				
+				~/scripts/rclone_script/rclone_script.sh "delete" "${system}/${romfilebase}.state${slotRemote}.png"
+				~/scripts/rclone_script/rclone_script.sh "delete" "${system}/${romfilebase}.state${slotRemote}"
+				
+				case $? in
+					0) log 2 "File(s) deleted successfully" ;;
+					1) log 0 "File(s) not deleted, connection not available" ;;
+					2) log 0 "File(s) not deleted, unknown error" ;;
+				esac
+			fi
+		fi
+	
+		# remove DELETE MARKER overlay
+		if [ "${pidDeleteOverlay}" != "" ]; then kill -INT ${pidDeleteOverlay}; fi
+	
 		# remove menu item from array (2 entries)
 		for i in "${!menuItems[@]}"
 		do
@@ -399,6 +438,9 @@ function deleteSavestate ()
 			startROM
 		fi
 	else
+		# remove DELETE MARKER overlay
+		if [ "${pidDeleteOverlay}" != "" ]; then kill -INT ${pidDeleteOverlay}; fi
+		
 		# return to dialog
 		showSavestateDeleter
 	fi
