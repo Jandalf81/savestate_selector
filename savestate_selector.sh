@@ -77,7 +77,7 @@ function getROMFileName ()
 	
 	rompath="${rom%/*}" # directory containing $rom
 	romfilename="${rom##*/}" # filename of $rom, including extension
-	romfilebase="${romfilename%%.*}" # filename of $rom, excluding extension
+	romfilebase="${romfilename%.*}" # filename of $rom, excluding extension
 	romfileext="${romfilename#*.}" # extension of $rom
 	
 	log 3 "ROMPATH:\t${rompath}"
